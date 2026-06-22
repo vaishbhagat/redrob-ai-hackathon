@@ -1,0 +1,81 @@
+# Redrob Hackathon — Submission Metadata
+
+# ============================================================================
+# Team identity
+# ============================================================================
+team_name: "redrob-ranker"
+
+primary_contact:
+  name: "Bhushan chavan"
+  email: "bhushanchavan131@gmail.com"
+  phone: "+91-XXXXXXXXXX"
+
+team_members:
+  - name: "Bhushan chavan"
+    email: "bhushanchavan131@gmail.com"
+    role: "Solo - ML/AI Engineer"
+
+# ============================================================================
+# Code and reproducibility
+# ============================================================================
+# NOTE: Replace 'YOUR_USERNAME' with your actual GitHub username before submitting
+github_repo: "https://github.com/YOUR_USERNAME/redrob-ai-hackathon"
+
+# NOTE: Replace 'YOUR_USERNAME' with your actual HuggingFace username before submitting
+sandbox_link: "https://huggingface.co/spaces/YOUR_USERNAME/redrob-ranker"
+
+reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./submission.csv"
+
+# ============================================================================
+# Compute environment
+# ============================================================================
+compute:
+  platform: "Windows 11 Laptop, Intel Core i5-1240P"
+  cpu_cores: 12
+  ram_gb: 8
+  python_version: "3.11"
+  os: "Windows 11"
+  uses_gpu_for_inference: false
+  has_network_during_ranking: false
+  pre_computation_required: true
+  pre_computation_time_minutes: 5
+
+# ============================================================================
+# AI tools declaration
+# ============================================================================
+ai_tools_used:
+  - "Gemini"
+
+ai_usage_summary: |
+  Used Gemini (Antigravity IDE) for code structure discussion and review.
+  All feature engineering decisions, weighting logic, and honeypot detection
+  were grounded in careful analysis of the candidate data and JD. No candidate
+  data was passed to any hosted LLM during or after preprocessing.
+
+# ============================================================================
+# Approach summary
+# ============================================================================
+methodology_summary: |
+  Feature-based ranker with 29 hand-crafted signals extracted from the
+  candidate schema. Scoring combines: (1) a weighted skill-overlap score
+  matching against 35 JD-specific keywords with proficiency x duration
+  weighting; (2) title/career trajectory features detecting ML/search/
+  retrieval experience; (3) a Gaussian experience score centred at 7 years;
+  (4) company-type signals (product vs consulting); (5) education tier;
+  (6) location bonus for Pune/Noida. A multiplicative behavioral modifier
+  (0.40x–1.50x) derived from 7 engagement signals weights in recency,
+  recruiter response rate, and platform activity. Four independent honeypot
+  detectors (calendar duration mismatch, expert-with-zero-duration, high
+  endorsement rates, pre-founding-year employment) assign floor scores to
+  impossible profiles. All scoring is fully vectorised with NumPy; ranking
+  100K candidates takes < 5 seconds on CPU.
+
+# ============================================================================
+# Declarations
+# ============================================================================
+declarations:
+  read_submission_spec: true
+  code_is_original_work: true
+  no_collusion: true
+  honeypot_check_done: true
+  reproduction_tested: true

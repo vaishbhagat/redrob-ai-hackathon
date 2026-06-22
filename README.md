@@ -1,0 +1,182 @@
+# Redrob Intelligent Candidate Ranking System
+
+A production-ready ranking system for the **Redrob Intelligent Candidate Discovery & Ranking Challenge**.
+
+## Architecture
+
+```
+preprocess.py   ← Offline (run once). Reads candidates.jsonl → features.npy + metadata.parquet
+rank.py         ← Timed step. Loads pre-computed files → submission.csv  (< 5 seconds)
+config.py       ← All weights, keyword lists, thresholds
+features.py     ← 29 feature extractors (vectorised)
+reasoning.py    ← Reasoning string generator
+```
+
+### Feature Set (29 features)
+
+| # | Group | Feature | Description |
+|---|-------|---------|-------------|
+| 0 | Skill | weighted_overlap_score | Proficiency × duration weighted match against JD keywords |
+| 1 | Skill | avg_proficiency_matched | Average proficiency level of matched skills |
+| 2 | Skill | avg_duration_matched | Average normalised duration of matched skills |
+| 3 | Title | title_ml_count | Count of ML/AI/search job titles across career |
+| 4 | Title | title_seniority | Max seniority level (0–3 → 0–1) |
+| 5 | Title | title_is_coding | Binary: current role is a coding/engineering role |
+| 6 | Experience | yoe_total | Total years of experience (normalised 0–15 yrs) |
+| 7 | Experience | yoe_ml_roles | Years spent in ML-titled roles |
+| 8 | Experience | yoe_gaussian | Gaussian peak at 7 yrs (ideal for this JD) |
+| 9 | Company | is_product_company | Current employer is a product company |
+| 10 | Company | all_consulting | Entire career at consulting firms (penalty) |
+| 11 | Company | faang_unicorn | Ever worked at FAANG / Indian unicorn |
+| 12 | Company | distinct_companies | Variety of employers (normalised) |
+| 13 | Education | edu_tier | Best institution tier score (tier_1=1.0 … tier_4=0.2) |
+| 14 | Education | cs_ml_degree | Binary: CS/ML/AI degree field |
+| 15 | Location | in_india | Binary: located in India |
+| 16 | Location | willing_relocate | Binary: willing to relocate |
+| 17 | Location | location_bonus | 1.0 Pune/Noida · 0.8 other India · 0.2 abroad |
+| 18 | Red Flag | title_chaser | Avg tenure < 18 months |
+| 19 | Red Flag | all_research | Purely academic/research career |
+| 20 | Red Flag | cv_only | CV/Speech primary skills, no NLP/IR |
+| 21–27 | Behavioral | (7 signals) | Response rate, recency, open-to-work, completeness, GitHub, saves, notice |
+| 28 | Honeypot | honeypot_flag | Physically impossible profile → score = –∞ |
+
+### Scoring Formula
+
+```
+base_score       = dot(features[0:18], weights[0:18])
+behavioral_mod   = scale(weighted_sum(features[21:28]), 0.40 → 1.50)
+penalties        = product(red-flag multipliers)
+final_score      = base_score × behavioral_mod × penalties
+honeypot         → final_score = -1e9
+```
+
+---
+
+## Setup
+
+```bash
+pip install -r requirements.txt
+```
+
+Requires Python 3.9+. No GPU, no network calls.
+
+---
+
+## Step 1 — Pre-processing (run once, not timed)
+
+```bash
+python preprocess.py --candidates candidates.jsonl --out-dir .
+```
+
+This creates:
+- `features.npy`     — float32 array shape (100000, 29)
+- `metadata.parquet` — DataFrame with human-readable fields for reasoning
+
+> Streaming, line-by-line. Memory stays well under 2 GB. Takes ~2–4 minutes.
+
+---
+
+## Step 2 — Ranking (timed, ≤ 5 minutes)
+
+```bash
+python rank.py --candidates candidates.jsonl --out submission.csv
+```
+
+or explicitly:
+
+```bash
+python rank.py --features features.npy --metadata metadata.parquet --out submission.csv
+```
+
+Outputs `submission.csv` with columns: `candidate_id, rank, score, reasoning`.
+
+Typical runtime: **< 5 seconds** on CPU.
+
+---
+
+## Step 3 — Validate
+
+```bash
+python validate_submission.py submission.csv
+```
+
+---
+
+## Rename for submission
+
+```bash
+# Replace team_xxx with your actual registered participant ID
+copy submission.csv team_xxx.csv
+python validate_submission.py team_xxx.csv
+```
+
+---
+
+## Design Decisions
+
+### Why pre-compute features?
+The 5-minute constraint applies to the **ranking step only**. Pre-computing feature vectors once (offline) means `rank.py` only loads NumPy arrays and does a matrix multiply — no JSON parsing, no regex matching. This guarantees the ranking runs in seconds regardless of dataset size.
+
+### Why no LLM calls?
+The spec explicitly prohibits external API calls. All scoring is done with hand-crafted features grounded in the JD: skill keyword matching, career trajectory analysis, behavioral engagement signals, and honeypot detection.
+
+### Honeypot detection
+Four independent checks catch impossible profiles:
+1. Listed job duration >> calendar span between start/end dates
+2. "Expert" proficiency with 0 months used AND endorsements > 0
+3. Endorsements > duration_months × 10
+4. Work start date before the company's known founding year (CRED, Groww, etc.)
+
+### Behavioral modifier
+Rather than adding behavioral signals to the base score (which could let a very engaged but irrelevant candidate rank high), they act as a **multiplicative modifier** (0.40–1.50×). A perfect-on-paper candidate who hasn't logged in for 6 months gets down-weighted, but a mediocre candidate with high engagement can't leapfrog a strong fit.
+
+### Red-flag penalties
+Applied as multiplicative penalties after the base score × behavioral modifier:
+- Title-chaser (avg tenure < 18 months): 0.65×
+- All-research/academic career: 0.50×
+- CV/Speech without any NLP/IR: 0.60×
+- All career at consulting firms: 0.80×
+
+---
+
+## Sandbox / Demo & HuggingFace Spaces Deployment
+
+A premium, interactive web interface is provided in `streamlit_app.py`. It functions as the required evaluator Sandbox environment.
+
+### Local Execution
+To launch the interactive dashboard locally:
+```bash
+streamlit run streamlit_app.py
+```
+This serves the dashboard at `http://localhost:8501`.
+
+### Deployment to HuggingFace Spaces
+Follow these steps to host your Sandbox on HuggingFace Spaces:
+
+1. **Create Space**: On HuggingFace, create a new Space. Set **SDK** to **Streamlit** and choose the **CPU Basic (Free)** hardware tier.
+2. **Set Visibility**: Set the Space to **Public** so that evaluators can access and test your sandbox.
+3. **Upload Files**: Upload the following files from your repository root:
+   - `streamlit_app.py` (the dashboard entry file)
+   - `submission.csv` (contains the final ranks & scores)
+   - `metadata.parquet` (contains candidate details & signals used by the inspector)
+   - `features.npy` (optional, required to render the 5D Polar/Radar Fit Chart)
+   - `requirements.txt` (defines dependencies for the space)
+4. **App Start**: HuggingFace will automatically build and start the Streamlit server based on `requirements.txt`.
+
+---
+
+## File Structure
+
+```
+redrob-ai-hackathon/
+├── config.py               # All constants, weights, keyword lists
+├── features.py             # Feature extraction (29 features)
+├── reasoning.py            # Reasoning string generator
+├── preprocess.py           # Offline pre-processing (not timed)
+├── rank.py                 # Timed ranking script → submission.csv
+├── app.py                  # Sandbox demo (HuggingFace Space compatible)
+├── validate_submission.py  # Official validator (verbatim copy)
+├── requirements.txt        # numpy, pandas, pyarrow, python-dateutil
+├── submission_metadata.yaml
+└── README.md
+```
