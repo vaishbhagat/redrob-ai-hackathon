@@ -1,0 +1,16 @@
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Large data files
+candidates.jsonl
+features.npy
+metadata.parquet
+
+# Environment
+.venv/
+venv/
+env/
+.env

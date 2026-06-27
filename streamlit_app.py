@@ -36,6 +36,19 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Hide the built-in Deploy button and top-right toolbar
+st.markdown(
+    """
+    <style>
+        [data-testid="stToolbar"] { display: none !important; }
+        [data-testid="stDecoration"] { display: none !important; }
+        #MainMenu { display: none !important; }
+        footer { display: none !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # ---------------------------------------------------------------------------
 # Data loading (cached)
@@ -224,10 +237,7 @@ filtered_df  = filtered_df[filtered_df["candidate_id"].isin(filtered_ids)]
 # ---------------------------------------------------------------------------
 
 st.title("Redrob Candidate Ranker")
-st.caption(
-    "Platform-ready ranking sandbox for Founding AI/ML Engineering roles  |  "
-    f"Last updated: {time.strftime('%Y-%m-%d %H:%M', time.localtime(Path('submission.csv').stat().st_mtime))}"
-)
+
 st.divider()
 
 
@@ -541,53 +551,3 @@ with col_inspector:
 
         else:
             st.warning(f"Could not load metadata for candidate: {selected_id}")
-
-
-# ---------------------------------------------------------------------------
-# Methodology expandable section
-# ---------------------------------------------------------------------------
-
-st.divider()
-with st.expander("Methodology — Ranking System Architecture"):
-    st.markdown("""
-    ### Redrob Candidate Discovery and Ranking System
-
-    This sandbox runs a **feature-based deterministic ranking system** optimized for
-    high-volume candidate screening (under 21 seconds on CPU for 100,000 candidates).
-
-    #### 1. Signal Extraction (29 features)
-    Candidates are evaluated across five thematic vectors (0.0 to 1.0 normalization):
-
-    - **Skill Match (f0-f2):** Extracts matches against 35 specific JD keywords. Weighs
-      intermediate/expert proficiencies and dampens duration to reward solid hands-on
-      experience without rewarding resume-stuffing.
-    - **Title Fit (f3-f5):** Scans full career history for roles matching ML/AI, search,
-      ranking, and NLP. Extracts seniority tier and ensures the current title is an
-      active programming/SDE position.
-    - **Experience Density (f6-f8):** Evaluates total YoE and ML-specific YoE. Applies a
-      Gaussian density function peaked at 7.0 years to match the mid-senior target range
-      (5-9 years).
-    - **Company and Pedigree (f9-f12):** Evaluates current company type, product vs
-      consulting experience, history at FAANG/unicorns, and variety of career changes.
-    - **Education Alignment (f13-f14):** Leverages institutional tiers (Tier 1-4) and
-      checks major relevancy (CS/ML/Stats).
-    - **Geographic Alignment (f15-f17):** Matches relocation readiness, presence in India,
-      and grants preference to Noida/Pune office hubs.
-
-    #### 2. Multiplicative Platform Modifiers
-    - **Behavioral Engagement:** Combines recruiter response rate, login recency, notice
-      period (preferring immediate / sub-30 day availability), and GitHub scoring into a
-      unified modifier. This scales the base candidate score by **0.40x to 1.50x**.
-      Active, responsive, and immediately available candidates rise to the top.
-    - **Red Flag Multipliers:**
-      - Title Chaser (average tenure < 18 months): **0.65x penalty**
-      - Pure Academic Research (no production shipping history): **0.50x penalty**
-      - Computer Vision/Speech Only (no NLP/Search exposure): **0.60x penalty**
-      - All Consulting Career (no product experience): **0.80x penalty**
-
-    #### 3. Honeypot Filters
-    Four independent physical sanity checks identify impossible profiles (e.g., job
-    duration exceeding calendar time, expert proficiency with 0 months of use, excessive
-    endorsements per month, or working before company founding dates). These anomalies
-    are flagged as honeypots and given a floor score of -1e9.
-    """)
