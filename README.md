@@ -2,6 +2,10 @@
 
 A production-ready ranking system for the **Redrob Intelligent Candidate Discovery & Ranking Challenge**.
 
+
+Live Demo (Hugging Face Space): https://huggingface.co/spaces/vaishnavi2204b/indiaruns-redrobai
+
+
 ## Architecture
 
 ```
